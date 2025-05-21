@@ -7,6 +7,7 @@ import weaviate
 from weaviate.auth import AuthApiKey
 from weaviate.config import AdditionalConfig, Timeout
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 # 1) Carga tus vars de .env
 load_dotenv()
@@ -41,6 +42,13 @@ collection = client.collections.get("RAGChunk")
 app = FastAPI()
 
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],            # Permite todas las URLs
+    allow_credentials=True,         # Permite el envío de cookies, cabeceras de autenticación, etc.
+    allow_methods=["*"],            # Permite todos los métodos (GET, POST, PUT, DELETE…)
+    allow_headers=["*"],            # Permite todas las cabeceras
+)
 def get_embedding(text: str, model: str = "text-embedding-3-small") -> List[float]:
     resp = openai.embeddings.create(input=[text], model=model)
     return resp.data[0].embedding
