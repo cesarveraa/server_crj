@@ -46,7 +46,7 @@ client_dunn = weaviate.connect_to_weaviate_cloud(
     headers           = {"X-OpenAI-Api-Key": OPENAI_API_KEY},
     additional_config = AdditionalConfig(timeout=Timeout(init=5, query=60, insert=120))
 )
-collection_dunn = client_doria.collections.get("RAGChunk")
+collection_dunn = client_dunn.collections.get("RAGChunk") 
 
 client_capitan = weaviate.connect_to_weaviate_cloud(
     cluster_url       = WEAVIATE_URL_CAPITAN,
