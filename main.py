@@ -16,6 +16,9 @@ OPENAI_API_KEY         = os.getenv("OPENAI_API_KEY")
 WEAVIATE_URL_DORIA     = os.getenv("WEAVIATE_URL")
 WEAVIATE_API_KEY_DORIA = os.getenv("WEAVIATE_API_KEY")
 
+WEAVIATE_URL_DUNN     = os.getenv("WEAVIATE_URL_DUNN")
+WEAVIATE_API_KEY_DUNN = os.getenv("WEAVIATE_API_DUNN")
+
 WEAVIATE_URL_CAPITAN     = os.getenv("WEAVIATE_URL_CAPITAN")
 WEAVIATE_API_KEY_CAPITAN = os.getenv("WEAVIATE_API_KEY_CAPITAN")
 
@@ -36,6 +39,14 @@ client_doria = weaviate.connect_to_weaviate_cloud(
     additional_config = AdditionalConfig(timeout=Timeout(init=5, query=60, insert=120))
 )
 collection_doria = client_doria.collections.get("RAGChunk")
+
+client_dunn = weaviate.connect_to_weaviate_cloud(
+    cluster_url       = WEAVIATE_URL_DUNN,
+    auth_credentials  = AuthApiKey(api_key=WEAVIATE_API_KEY_DUNN),
+    headers           = {"X-OpenAI-Api-Key": OPENAI_API_KEY},
+    additional_config = AdditionalConfig(timeout=Timeout(init=5, query=60, insert=120))
+)
+collection_dunn = client_doria.collections.get("RAGChunk")
 
 client_capitan = weaviate.connect_to_weaviate_cloud(
     cluster_url       = WEAVIATE_URL_CAPITAN,
@@ -95,6 +106,43 @@ def responder_como_doria(query: str) -> str:
     )
     return respuesta.choices[0].message.content.strip()
 
+# --- DUNN ---
+def construir_prompt_dunn(query: str, contexto: List[str]) -> str:
+    ctx = "\n\n".join(contexto)
+    return f"""
+Responde como Jaime Dunn de Ávila, candidato presidencial boliviano (NGP) en 2025.
+
+Estilo: tecnocrático, liberal clásico, frontal. Defiende un Estado mínimo, la creación de riqueza, y la lucha contra la corrupción. Usa frases como:
+- "Bolivia no es pobre, ha sido empobrecida por un Estado que castiga al que trabaja."
+- "La riqueza no se distribuye, se crea."
+- "Estado mínimo pero fuerte."
+
+Temas clave:
+- Reducción del gasto público
+- Liberalización de mercados (hidrocarburos, litio, agroindustria)
+- Reforma judicial sin elección popular
+- Autonomía regional y descentralización
+- Inversión privada y política exterior pro-mercado
+
+Contexto:
+{ctx}
+
+Pregunta:
+{query}
+
+Respuesta como Jaime Dunn:"""
+
+def responder_como_dunn(query: str) -> str:
+    contexto = search_chunks(query, collection_dunn)
+    prompt = construir_prompt_dunn(query, contexto)
+    respuesta = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=500
+    )
+    return respuesta.choices[0].message.content.strip()
+
 # --- CAPITÁN LARA ---
 def construir_prompt_capitan(query: str, contexto: List[str]) -> str:
     contexto_texto = "\n\n".join(contexto)
@@ -141,6 +189,13 @@ async def endpoint_doria(payload: dict):
     if not query:
         raise HTTPException(status_code=400, detail="Debes enviar 'query' en el body")
     return {"response": responder_como_doria(query)}
+
+@app.post("/api/responder_dunn")
+async def endpoint_dunn(payload: dict):
+    query = payload.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Debes enviar 'query' en el body")
+    return {"response": responder_como_dunn(query)}
 
 @app.post("/api/responder_capitan")
 async def endpoint_capitan(payload: dict):
